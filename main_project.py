@@ -9,7 +9,8 @@ connection = mysql.connector.connect(
 )
 
 user_id = 1001
-t_user_id = None
+sale_id = 1
+invoice_id = 1
 
 # SIGN UP PAGE
 def signup():
@@ -29,7 +30,6 @@ def signup():
 
     cursor = connection.cursor()
     try:
-        # Check if the username already exists
         check_query = "SELECT COUNT(*) FROM users WHERE username = '{}'".format(username)
         cursor.execute(check_query)
         result = cursor.fetchone()
@@ -37,7 +37,6 @@ def signup():
             print("Error: Username already exists. Please try a different username.")
             return
 
-        # Insert the new user
         query = "INSERT INTO users (id, username, password, role) VALUES ({}, '{}', '{}', '{}')"
         cursor.execute(query.format(user_id, username, password, role))
         connection.commit()
@@ -64,8 +63,42 @@ def view_products():
         print("No products available!")
     print("-"*50)
 
-def place_order():
 
+def generate_invoice(invoice_id):
+    cursor = connection.cursor()
+
+    query = """
+    SELECT 
+        invoices.id AS invoice_id,
+        sales.product_id,
+        products.name AS product_name,
+        products.price AS product_price,
+        sales.quantity_sold,
+        invoices.total_amount
+    FROM invoices
+    JOIN sales ON invoices.sales_id = sales.id
+    JOIN products ON sales.product_id = products.id
+    WHERE invoices.id = {}
+    """
+    cursor.execute(query.format(invoice_id))
+    invoice = cursor.fetchone()
+    cursor.close()
+
+    if invoice:
+        print("\n--- Invoice ---")
+        print(f"Invoice ID: {invoice[0]}")
+        print(f"Product Name: {invoice[2]}")
+        print(f"Price per Unit: ₹{invoice[3]}")
+        print(f"Quantity: {invoice[4]}")
+        print(f"Total Amount: ₹{invoice[5]}")
+        print("----------------")
+    else:
+        print("Error: Unable to retrieve invoice details.")
+
+
+def place_order():
+    global sale_id
+    global invoice_id
     view_products()
 
     product_id = int(input("\nEnter the Product ID you want to buy: "))
@@ -89,58 +122,33 @@ def place_order():
     update_quantity_query = "UPDATE products SET quantity = {} WHERE id = {}"
     cursor.execute(update_quantity_query.format(new_quantity, product_id))
 
-    update_query = "INSERT INTO sales (id, product_id, quantity_sold, sale_date) VALUES ({}, {}, {})"
-    cursor.execute(update_query.format(t_user_id[0], product_id, quantity))
+    update_query = "INSERT INTO sales (id, product_id, quantity_sold) VALUES ({}, {}, {})"
+    cursor.execute(update_query.format(sale_id, product_id, quantity))
 
     fetch_query = "SELECT MAX(id) FROM sales"
     cursor.execute(fetch_query)
     sale_id = cursor.fetchone()[0]
 
-    invoice_query = "INSERT INTO invoices (sales_id, total_amount) VALUES ({}, {})"
+    invoice_query = "INSERT INTO invoices (id, sales_id, total_amount) VALUES ({}, {}, {})"
     total_amount = product_price * quantity
-    cursor.execute(invoice_query.format(sale_id, total_amount))
+    cursor.execute(invoice_query.format(invoice_id, sale_id, total_amount))
+
+    sale_id += 1
+    invoice_id += 1
 
     connection.commit()
     cursor.close()
     print(f"Order placed successfully for {quantity} unit(s) of {product_name}. Total Amount: ₹{total_amount}")
+
+    while True:
+        choice = input("Do you want Invoice for your Order ? \n1. Yes \n2. No")
+        if choice == "1":
+            generate_invoice(invoice_id)
+        elif choice == "2":
+            break
+        else:
+            print("Enter a Valid Input !!")
     print("-"*50)
-
-
-def record_sale():
-    view_products()
-    product_id = int(input("Enter Product ID Sold: "))
-    quantity_sold = int(input("Enter Quantity Sold: "))
-
-    cursor = connection.cursor()
-
-    # Check stock
-    check_query = "SELECT quantity, price FROM products WHERE id = {}"
-    cursor.execute(check_query.format(product_id,))
-    product = cursor.fetchone()
-    if not product or product[0] < quantity_sold:
-        print("Insufficient stock or invalid product ID.")
-        cursor.close()
-        return
-
-    # Record sale
-    sale_query = "INSERT INTO sales (product_id, quantity_sold) VALUES ({}, {})"
-    cursor.execute(sale_query.format(product_id, quantity_sold))
-    fetch_query = "SELECT MAX(id) FROM sales"
-    cursor.execute(fetch_query)
-    sale_id = cursor.fetchone()[0]
-
-    # Update stock
-    stock_query = "UPDATE products SET quantity = quantity - {} WHERE id = {}"
-    cursor.execute(stock_query.format(quantity_sold, product_id))
-
-    # Generate invoice
-    total_amount = product[1] * quantity_sold
-    invoice_query = "INSERT INTO invoices (sales_id, total_amount) VALUES ({}, {})"
-    cursor.execute(invoice_query.format(sale_id, total_amount))
-
-    connection.commit()
-    cursor.close()
-    print(f"Sale recorded successfully! Invoice generated. Total Amount: {total_amount}")
 
 
 def customer_menu():
@@ -224,6 +232,15 @@ def view_invoices():
     for invoice in invoices:
         print(f"Invoice ID: {invoice[0]}, Sale ID: {invoice[1]}, Total Amount: {invoice[2]}, Date: {invoice[3]}")
 
+def view_sales():
+    cursor = connection.cursor()
+    cursor.execute("SELECT * FROM sales")
+    sales = cursor.fetchall()
+    cursor.close()
+
+    print("\nSales:")
+    for sale in sales:
+        print(f"Sale ID: {sale[0]}, Product ID: {sale[1]}, Quantity Sold: {sale[2]}, Sale Date and Time: {sale[3]}")
 
 def admin_menu():
     while True:
@@ -233,7 +250,8 @@ def admin_menu():
         print("3. Update Product")
         print("4. Delete Product")
         print("5. View Invoices")
-        print("6. Back to Main Menu")
+        print("6. View Sales")
+        print("7. Back to Main Menu")
 
         choice = int(input("Enter your choice: "))
 
@@ -248,6 +266,8 @@ def admin_menu():
         elif choice == 5:
             view_invoices()
         elif choice == 6:
+            view_sales()
+        elif choice == 7:
             break
         else:
             print("Invalid choice. Try again.")
@@ -255,17 +275,10 @@ def admin_menu():
 
 # LOGIN PAGE
 def login():
-    global t_user_id
     print("\nLogin:")
 
     username = input("Enter Username: ")
     password = input("Enter Password: ")
-
-    cursor = connection.cursor()
-    get_user_id_query = "SELECT id FROM users WHERE username = '{}'"
-    cursor.execute(get_user_id_query.format(username))
-    t_user_id = cursor.fetchone()
-    cursor.close()
 
     cursor = connection.cursor()
     query = "SELECT role FROM users WHERE username = '{}' AND password = '{}'"
@@ -301,4 +314,5 @@ def main_menu():
         else:
             print("Invalid choice. Try again.")
 
+connection.close()
 main_menu()
