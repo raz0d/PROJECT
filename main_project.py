@@ -138,7 +138,7 @@ def place_order():
     cursor.close()
 
     while True:
-        print("Do you want Invoice for your Order ? \n1. Yes \n2. No")
+        print("\nDo you want Invoice for your Order ? \n1. Yes \n2. No")
         choice = input("Enter your choice: ")
         if choice == "1":
             generate_invoice(invoice_id)
@@ -302,7 +302,7 @@ def login():
         elif role == "customer":
             customer_menu()
     else:
-        print("Invalid username or password. Please try again.")
+        print("\nInvalid username or password. Please try again.")
 
 def main_menu():
 
