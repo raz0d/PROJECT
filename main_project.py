@@ -147,7 +147,7 @@ def place_order():
             break
         else:
             print("Enter a Valid Input !!")
-    print("-"*25)
+    print("-"*15)
 
 
 def customer_menu():
