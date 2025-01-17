@@ -305,7 +305,15 @@ def login():
         print("\nInvalid username or password. Please try again.")
 
 def main_menu():
-
+    print("##Class 12th CS PROJECT(083)##_")
+    print("_                                                                                         _ ")
+    print("| ............................. @@@@@@@@@ WELCOME @@@@@@@@@ ............................. |")
+    print("|.........................     E-COMMERCE MANAGEMENT SYSTEM     ..........................|")
+    print("| .............................          MADE BY:           ............................. |")
+    print("| ........................... ALSAMAD, ADITYA, SAHIL, ANSH  ............................. |")
+    print("| .........................  SUBMITTED TO: R.P. KUSHWAHA SIR    ......................... |")
+    print("| ..........................          SESSION: 2024-2025       .......................... |")
+    print("_                                                                                         _")
     while True:
         print("\nMenu:")
         print("1. Login")
